@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "name": "판단 게이트",
+  "identifier": "decision_gate_lv",
+  "author": "mallang0723",
+  "description": "로어북 항목에 판단 문장을 달면, 생성 직전에 Decision 모델이 지금 장면에 맞는지 판단해 항목을 켜거나 끕니다. (마리나라 판단 활성화 재현)",
+  "permissions": ["generation", "decisions"],
+  "entry_backend": "dist/backend.js"
+}
