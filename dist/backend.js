@@ -90,11 +90,10 @@ function parseEntryConfig(e) {
 function hashText(s) {
   return Bun.hash(s).toString(36);
 }
-function cacheKey(chatId, messages, configs, s) {
-  const last = messages[messages.length - 1];
+function cacheKey(chatId, state, configs, s) {
   const cfg = configs.map((c) => [c.id, c.mode, c.statement, c.threshold]);
   const sh = [s.connection_id, s.history_messages, s.fail_open_require];
-  return [chatId, last?.id ?? "", hashText(last?.content ?? ""), hashText(JSON.stringify([cfg, sh]))].join("|");
+  return [chatId, hashText(state), hashText(JSON.stringify([cfg, sh]))].join("|");
 }
 function scoreOf(answer) {
   if (!answer || typeof answer !== "object")
@@ -150,7 +149,14 @@ function createGate(deps) {
     const settings = normalizeSettings(await deps.getSettings());
     if (!settings.enabled)
       return;
-    const key = cacheKey(ctx.chatId, ctx.messages, configs, settings);
+    const state = buildState(ctx.messages, settings.history_messages);
+    if (!state) {
+      const { result } = decide(configs, null, settings.fail_open_require);
+      if (settings.log_decisions)
+        deps.log?.(`[decision-gate] \uBE48 \uC7A5\uBA74, \uD638\uCD9C \uC0DD\uB7B5 (\uD56D\uBAA9 ${configs.length}\uAC1C)`);
+      return result;
+    }
+    const key = cacheKey(ctx.chatId, state, configs, settings);
     const hit = cache.get(key);
     if (hit) {
       cache.delete(key);
@@ -159,10 +165,10 @@ function createGate(deps) {
         deps.log?.(`[decision-gate] \uCE90\uC2DC \uC801\uC911 (\uD56D\uBAA9 ${configs.length}\uAC1C)`);
       return hit;
     }
-    const state = buildState(ctx.messages, settings.history_messages);
     const started = now();
     let answers = null;
     let failure = "";
+    let usageNote = "";
     const ac = new AbortController;
     let timer;
     const onCtxAbort = () => ac.abort();
@@ -194,6 +200,13 @@ function createGate(deps) {
       answers = res && typeof res === "object" && res.answers && typeof res.answers === "object" ? res.answers : null;
       if (!answers)
         failure = "bad-response";
+      const u = res && typeof res === "object" ? res.usage : undefined;
+      if (u && typeof u === "object") {
+        const f = (v) => typeof v === "number" && Number.isFinite(v) ? String(v) : null;
+        const bits = [["in", f(u.input_tokens)], ["out", f(u.output_tokens)], ["cost", f(u.cost)]].filter(([, v]) => v !== null).map(([k, v]) => `${k}=${v}`);
+        if (bits.length)
+          usageNote = ` ${bits.join(" ")}`;
+      }
     } catch (err) {
       failure = err instanceof TimeoutError ? "timeout" : "error";
     } finally {
@@ -205,7 +218,7 @@ function createGate(deps) {
     const { result, scores } = decide(configs, answers, settings.fail_open_require);
     if (settings.log_decisions) {
       const parts = configs.map((c) => `"${c.name}"=${scores[c.id] === null ? "n/a" : scores[c.id].toFixed(2)}`);
-      deps.log?.(`[decision-gate] ${failure ? `\uC2E4\uD328(${failure}) ` : ""}${parts.join(" ")} ${elapsed}ms`);
+      deps.log?.(`[decision-gate] ${failure ? `\uC2E4\uD328(${failure}) ` : ""}${parts.join(" ")} ${elapsed}ms${usageNote}`);
     }
     if (!failure) {
       cache.set(key, result);

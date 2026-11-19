@@ -37,7 +37,7 @@ export interface EvaluateFn {
   (
     input: { connection_id?: string; state: string; questions: Record<string, { type: 'noul'; instructions: string }>; userId?: string },
     options?: { signal?: AbortSignal },
-  ): Promise<{ answers: Record<string, unknown> }>;
+  ): Promise<{ answers: Record<string, unknown>; usage?: { input_tokens?: number | null; output_tokens?: number | null; cost?: number | null } }>;
 }
 export interface GateDeps {
   evaluate: EvaluateFn;
@@ -63,11 +63,11 @@ export function hashText(s: string): string {
   return Bun.hash(s).toString(36);
 }
 
-export function cacheKey(chatId: string, messages: readonly GateMessage[], configs: readonly EntryConfig[], s: GateSettings): string {
-  const last = messages[messages.length - 1];
+/** 키 = 채팅 + 실제로 보내는 장면 문자열(state) 해시 + 항목·연결 설정. 판단 창 안 어느 메시지가 바뀌어도 달라진다. */
+export function cacheKey(chatId: string, state: string, configs: readonly EntryConfig[], s: GateSettings): string {
   const cfg = configs.map((c) => [c.id, c.mode, c.statement, c.threshold]);
   const sh = [s.connection_id, s.history_messages, s.fail_open_require];
-  return [chatId, last?.id ?? '', hashText(last?.content ?? ''), hashText(JSON.stringify([cfg, sh]))].join('|');
+  return [chatId, hashText(state), hashText(JSON.stringify([cfg, sh]))].join('|');
 }
 
 /** noul 응답 → 점수. 숫자가 아니면 null(실패). */
@@ -126,7 +126,14 @@ export function createGate(deps: GateDeps) {
     const settings = normalizeSettings(await deps.getSettings());
     if (!settings.enabled) return;
 
-    const key = cacheKey(ctx.chatId, ctx.messages, configs, settings);
+    const state = buildState(ctx.messages, settings.history_messages);
+    if (!state) {
+      // 빈 장면(인사말뿐 등): 유료 호출 없이 실패와 같은 규칙으로 처리
+      const { result } = decide(configs, null, settings.fail_open_require);
+      if (settings.log_decisions) deps.log?.(`[decision-gate] 빈 장면, 호출 생략 (항목 ${configs.length}개)`);
+      return result;
+    }
+    const key = cacheKey(ctx.chatId, state, configs, settings);
     const hit = cache.get(key);
     if (hit) {
       cache.delete(key);
@@ -135,10 +142,10 @@ export function createGate(deps: GateDeps) {
       return hit;
     }
 
-    const state = buildState(ctx.messages, settings.history_messages);
     const started = now();
     let answers: Record<string, unknown> | null = null;
     let failure = '';
+    let usageNote = '';
     const ac = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onCtxAbort = () => ac.abort();
@@ -167,6 +174,12 @@ export function createGate(deps: GateDeps) {
       ]);
       answers = res && typeof res === 'object' && res.answers && typeof res.answers === 'object' ? res.answers : null;
       if (!answers) failure = 'bad-response';
+      const u = res && typeof res === 'object' ? res.usage : undefined;
+      if (u && typeof u === 'object') {
+        const f = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : null);
+        const bits = [['in', f(u.input_tokens)], ['out', f(u.output_tokens)], ['cost', f(u.cost)]].filter(([, v]) => v !== null).map(([k, v]) => `${k}=${v}`);
+        if (bits.length) usageNote = ` ${bits.join(' ')}`;
+      }
     } catch (err) {
       failure = err instanceof TimeoutError ? 'timeout' : 'error'; // 오류 본문은 기록하지 않는다
     } finally {
@@ -178,7 +191,7 @@ export function createGate(deps: GateDeps) {
     const { result, scores } = decide(configs, answers, settings.fail_open_require);
     if (settings.log_decisions) {
       const parts = configs.map((c) => `"${c.name}"=${scores[c.id] === null ? 'n/a' : (scores[c.id] as number).toFixed(2)}`);
-      deps.log?.(`[decision-gate] ${failure ? `실패(${failure}) ` : ''}${parts.join(' ')} ${elapsed}ms`);
+      deps.log?.(`[decision-gate] ${failure ? `실패(${failure}) ` : ''}${parts.join(' ')} ${elapsed}ms${usageNote}`);
     }
     if (!failure) {
       cache.set(key, result);

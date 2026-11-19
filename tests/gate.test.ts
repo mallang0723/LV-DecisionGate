@@ -41,17 +41,15 @@ test('decide: 실패 시 trigger 무동작, require는 끔(fail_open이면 통�
   expect(decide(cfgs, { e1: { noul: 'x' } }, false).result).toEqual({ disabled: ['e2'] });
 });
 
-test('캐시 키: 마지막 메시지·내용·설정이 바뀌면 달라짐', () => {
+test('캐시 키: state·채팅·항목 설정이 바뀌면 달라짐', () => {
   const cfgs = [parseEntryConfig(entries()[0]!)!];
-  const base = cacheKey('c', msgs(), cfgs, DEFAULT_SETTINGS);
-  expect(cacheKey('c', msgs(), cfgs, DEFAULT_SETTINGS)).toBe(base);
-  expect(cacheKey('d', msgs(), cfgs, DEFAULT_SETTINGS)).not.toBe(base);
-  const m2 = msgs(); m2[m2.length - 1] = { ...m2[m2.length - 1]!, content: '다름' };
-  expect(cacheKey('c', m2, cfgs, DEFAULT_SETTINGS)).not.toBe(base);
-  const m3 = msgs(); m3[m3.length - 1] = { ...m3[m3.length - 1]!, id: 'zz' };
-  expect(cacheKey('c', m3, cfgs, DEFAULT_SETTINGS)).not.toBe(base);
+  const base = cacheKey('c', 'user: a', cfgs, DEFAULT_SETTINGS);
+  expect(cacheKey('c', 'user: a', cfgs, DEFAULT_SETTINGS)).toBe(base);
+  expect(cacheKey('d', 'user: a', cfgs, DEFAULT_SETTINGS)).not.toBe(base);
+  expect(cacheKey('c', 'user: b', cfgs, DEFAULT_SETTINGS)).not.toBe(base);
   const cfg2 = [{ ...cfgs[0]!, statement: 'changed' }];
-  expect(cacheKey('c', msgs(), cfg2, DEFAULT_SETTINGS)).not.toBe(base);
+  expect(cacheKey('c', 'user: a', cfg2, DEFAULT_SETTINGS)).not.toBe(base);
+  expect(cacheKey('c', 'user: a', cfgs, { ...DEFAULT_SETTINGS, connection_id: 'x' })).not.toBe(base);
 });
 
 test('설정 검증: 타입·범위·timeout 클램프(<10000)', () => {

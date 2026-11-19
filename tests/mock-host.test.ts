@@ -105,3 +105,34 @@ test('connection_id 설정은 evaluate에 전달', async () => {
   await createGate({ evaluate: m.evaluate, getSettings: () => ({ connection_id: 'conn-1' }) }).handler(ctx());
   expect(m.calls[0].input.connection_id).toBe('conn-1');
 });
+
+test('회귀: 판단 창 안 앞 메시지 편집·삭제 → 캐시 미스(재호출), 동일 ctx → 적중', async () => {
+  const m = mock(yes);
+  const g = createGate({ evaluate: m.evaluate, getSettings: () => ({}) });
+  await g.handler(ctx());
+  await g.handler(ctx());
+  expect(m.calls).toHaveLength(1);
+  const edited = ctx(); edited.messages = edited.messages.map((x) => (x.id === 'm1' ? { ...x, content: '고쳐 쓴 앞 메시지' } : x));
+  await g.handler(edited);
+  expect(m.calls).toHaveLength(2);
+  const deleted = ctx(); deleted.messages = deleted.messages.filter((x) => x.id !== 'm2');
+  await g.handler(deleted);
+  expect(m.calls).toHaveLength(3);
+  await g.handler(edited);
+  expect(m.calls).toHaveLength(3); // 편집본은 이미 캐시됨
+});
+test('빈 장면(인사말뿐)이면 evaluate 0회, 실패 규칙(require 끔, fail_open이면 통과)', async () => {
+  const m = mock(yes);
+  const only = ctx(); only.messages = [{ id: 'g', role: 'assistant', content: '인사말', is_greeting: true }];
+  expect(await createGate({ evaluate: m.evaluate, getSettings: () => ({}) }).handler(only)).toEqual({ disabled: ['b'] });
+  expect(await createGate({ evaluate: m.evaluate, getSettings: () => ({ fail_open_require: true }) }).handler(only)).toEqual({});
+  expect(m.calls).toHaveLength(0);
+});
+test('로그: usage 숫자만 기록, 장면·판단 문장은 없음', async () => {
+  const logs: string[] = [];
+  const ev: EvaluateFn = async () => ({ answers: { a: { noul: 0.9 }, b: { noul: 0.9 } }, usage: { input_tokens: 10, output_tokens: 2, cost: 0.001 } });
+  await createGate({ evaluate: ev, getSettings: () => ({}), log: (s) => logs.push(s) }).handler(ctx());
+  expect(logs.join('\n')).toContain('in=10 out=2 cost=0.001');
+  expect(logs.join('\n')).not.toContain('장면');
+  expect(logs.join('\n')).not.toContain('A?');
+});
