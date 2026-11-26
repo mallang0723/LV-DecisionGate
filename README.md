@@ -27,7 +27,7 @@ The API (`spindle.decisions.evaluate`) arrived in commit `6d6a921b` (“Add Type
 3. Enable **Decision Gate · 판단 게이트**. If permissions were granted after startup, disable and re-enable it.
 4. In **Connections → Decision Models**, configure a default `noul`-capable model and credentials (or set `connection_id` below). A chat connection alone is insufficient.
 
-![Decision Gate enabled with generation and decisions permissions, and the Decision models section of Connections](docs/images/extension-permissions.png)
+![Decision Gate enabled with generation and decisions permissions, and the Decision models section of Connections](docs/images/extension-permissions-en.png)
 
 ## Usage and entry fields
 
