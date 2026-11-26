@@ -38,6 +38,7 @@ function buildState(messages, n) {
 
 // src/settings.ts
 var DEFAULT_SETTINGS = {
+  language: "en",
   enabled: true,
   connection_id: null,
   history_messages: 6,
@@ -56,6 +57,7 @@ function normalizeSettings(raw) {
   const r = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const d = DEFAULT_SETTINGS;
   return {
+    language: r.language === "ko" ? "ko" : d.language,
     enabled: typeof r.enabled === "boolean" ? r.enabled : d.enabled,
     connection_id: typeof r.connection_id === "string" && r.connection_id.trim() ? r.connection_id.trim() : null,
     history_messages: int(r.history_messages, d.history_messages, 1, 50),
@@ -64,6 +66,25 @@ function normalizeSettings(raw) {
     log_decisions: typeof r.log_decisions === "boolean" ? r.log_decisions : d.log_decisions
   };
 }
+
+// src/i18n.ts
+var decision = (failed) => (failure, scores, elapsed, usage) => `[decision-gate] ${failure ? `${failed}(${failure}) ` : ""}${scores} ${elapsed}ms${usage}`;
+var LOG_MESSAGES = {
+  en: {
+    ready: "[decision-gate] ready",
+    emptyScene: (count) => `[decision-gate] empty scene, call skipped (entries ${count})`,
+    cacheHit: (count) => `[decision-gate] cache hit (entries ${count})`,
+    internalError: (name) => `[decision-gate] internal error, passed through: ${name}`,
+    decision: decision("failed")
+  },
+  ko: {
+    ready: "[decision-gate] \uC900\uBE44\uB428",
+    emptyScene: (count) => `[decision-gate] \uBE48 \uC7A5\uBA74, \uD638\uCD9C \uC0DD\uB7B5 (\uD56D\uBAA9 ${count}\uAC1C)`,
+    cacheHit: (count) => `[decision-gate] \uCE90\uC2DC \uC801\uC911 (\uD56D\uBAA9 ${count}\uAC1C)`,
+    internalError: (name) => `[decision-gate] \uB0B4\uBD80 \uC624\uB958, \uD1B5\uACFC: ${name}`,
+    decision: decision("\uC2E4\uD328")
+  }
+};
 
 // src/gate.ts
 var NAMESPACES = ["decision_gate", "decision_gate_lv"];
@@ -147,13 +168,14 @@ function createGate(deps) {
     if (configs.length === 0)
       return;
     const settings = normalizeSettings(await deps.getSettings());
+    const messages = LOG_MESSAGES[settings.language];
     if (!settings.enabled)
       return;
     const state = buildState(ctx.messages, settings.history_messages);
     if (!state) {
       const { result } = decide(configs, null, settings.fail_open_require);
       if (settings.log_decisions)
-        deps.log?.(`[decision-gate] \uBE48 \uC7A5\uBA74, \uD638\uCD9C \uC0DD\uB7B5 (\uD56D\uBAA9 ${configs.length}\uAC1C)`);
+        deps.log?.(messages.emptyScene(configs.length));
       return result;
     }
     const key = cacheKey(ctx.chatId, state, configs, settings);
@@ -162,7 +184,7 @@ function createGate(deps) {
       cache.delete(key);
       cache.set(key, hit);
       if (settings.log_decisions)
-        deps.log?.(`[decision-gate] \uCE90\uC2DC \uC801\uC911 (\uD56D\uBAA9 ${configs.length}\uAC1C)`);
+        deps.log?.(messages.cacheHit(configs.length));
       return hit;
     }
     const started = now();
@@ -218,7 +240,7 @@ function createGate(deps) {
     const { result, scores } = decide(configs, answers, settings.fail_open_require);
     if (settings.log_decisions) {
       const parts = configs.map((c) => `"${c.name}"=${scores[c.id] === null ? "n/a" : scores[c.id].toFixed(2)}`);
-      deps.log?.(`[decision-gate] ${failure ? `\uC2E4\uD328(${failure}) ` : ""}${parts.join(" ")} ${elapsed}ms${usageNote}`);
+      deps.log?.(messages.decision(failure, parts.join(" "), elapsed, usageNote));
     }
     if (!failure) {
       cache.set(key, result);
@@ -232,22 +254,24 @@ function createGate(deps) {
 
 // src/backend.ts
 var SETTINGS_PATH = "settings.json";
+async function getSettings() {
+  try {
+    return normalizeSettings(await spindle.storage.getJson(SETTINGS_PATH, { fallback: {} }));
+  } catch {
+    return normalizeSettings({});
+  }
+}
 var gate = createGate({
   evaluate: (input, options) => spindle.decisions.evaluate(input, options),
-  getSettings: async () => {
-    try {
-      return await spindle.storage.getJson(SETTINGS_PATH, { fallback: {} });
-    } catch {
-      return {};
-    }
-  },
+  getSettings,
   log: (m) => spindle.log.info(m)
 });
 spindle.registerWorldInfoInterceptor(async (ctx) => {
   try {
     return await gate.handler(ctx);
   } catch (e) {
-    spindle.log.warn(`[decision-gate] \uB0B4\uBD80 \uC624\uB958, \uD1B5\uACFC: ${e instanceof Error ? e.name : "error"}`);
+    const settings = await getSettings();
+    spindle.log.warn(LOG_MESSAGES[settings.language].internalError(e instanceof Error ? e.name : "error"));
   }
 }, 100);
-spindle.log.info("[decision-gate] \uC900\uBE44\uB428");
+spindle.log.info(LOG_MESSAGES[(await getSettings()).language].ready);

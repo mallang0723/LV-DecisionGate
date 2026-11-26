@@ -1,5 +1,6 @@
 import { buildState, type StateMessage } from './state';
 import { normalizeSettings, type GateSettings } from './settings';
+import { LOG_MESSAGES } from './i18n';
 
 /** 항목 extensions 안의 읽는 이름 (설계서 §3 + identifier 폴백). */
 export const NAMESPACES = ['decision_gate', 'decision_gate_lv'] as const;
@@ -124,13 +125,14 @@ export function createGate(deps: GateDeps) {
     if (configs.length === 0) return;
 
     const settings = normalizeSettings(await deps.getSettings());
+    const messages = LOG_MESSAGES[settings.language];
     if (!settings.enabled) return;
 
     const state = buildState(ctx.messages, settings.history_messages);
     if (!state) {
       // 빈 장면(인사말뿐 등): 유료 호출 없이 실패와 같은 규칙으로 처리
       const { result } = decide(configs, null, settings.fail_open_require);
-      if (settings.log_decisions) deps.log?.(`[decision-gate] 빈 장면, 호출 생략 (항목 ${configs.length}개)`);
+      if (settings.log_decisions) deps.log?.(messages.emptyScene(configs.length));
       return result;
     }
     const key = cacheKey(ctx.chatId, state, configs, settings);
@@ -138,7 +140,7 @@ export function createGate(deps: GateDeps) {
     if (hit) {
       cache.delete(key);
       cache.set(key, hit);
-      if (settings.log_decisions) deps.log?.(`[decision-gate] 캐시 적중 (항목 ${configs.length}개)`);
+      if (settings.log_decisions) deps.log?.(messages.cacheHit(configs.length));
       return hit;
     }
 
@@ -191,7 +193,7 @@ export function createGate(deps: GateDeps) {
     const { result, scores } = decide(configs, answers, settings.fail_open_require);
     if (settings.log_decisions) {
       const parts = configs.map((c) => `"${c.name}"=${scores[c.id] === null ? 'n/a' : (scores[c.id] as number).toFixed(2)}`);
-      deps.log?.(`[decision-gate] ${failure ? `실패(${failure}) ` : ''}${parts.join(' ')} ${elapsed}ms${usageNote}`);
+      deps.log?.(messages.decision(failure, parts.join(' '), elapsed, usageNote));
     }
     if (!failure) {
       cache.set(key, result);

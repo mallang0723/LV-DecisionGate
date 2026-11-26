@@ -2,7 +2,7 @@
 
 **Requires a Lumiverse build that includes the Decision API (`decisions-v1`): any build from 2026-10-11 or later — e.g. the current ghcr.io `latest` Docker image or staging/1.3.0. The tagged v1.2.5 release from 2026-10-09 does not include it; later builds may still show 1.2.5 as the version.**
 
-Decision Gate reproduces Marinara's lorebook “decision activation”: a Decision model checks entry conditions against the recent scene during prompt assembly, enabling situational lore beyond keywords. Extension **0.1.1** · `decision_gate_lv`.
+Decision Gate reproduces Marinara's lorebook “decision activation”: a Decision model checks entry conditions against the recent scene during prompt assembly, enabling situational lore beyond keywords. Extension **0.2.0** · `decision_gate_lv`.
 
 ## Features
 
@@ -24,7 +24,7 @@ The API (`spindle.decisions.evaluate`) arrived in commit `6d6a921b` (“Add Type
 2. Grant both permissions:
    - **`generation`** — adjusts lorebook activation during prompt assembly.
    - **`decisions`** — evaluates conditions through the configured Decision model.
-3. Enable **판단 게이트**. If permissions were granted after startup, disable and re-enable it.
+3. Enable **Decision Gate · 판단 게이트**. If permissions were granted after startup, disable and re-enable it.
 4. In **Connections → Decision Models**, configure a default `noul`-capable model and credentials (or set `connection_id` below). A chat connection alone is insufficient.
 
 ![Decision Gate enabled with generation and decisions permissions, and the Decision models section of Connections](docs/images/extension-permissions.png)
@@ -68,7 +68,7 @@ Disabled entries and invalid configurations are skipped. `decision_gate_lv` is a
 ![Example entry metadata for the decision_gate extension namespace](docs/images/decision-metadata.png)
 
 
-**Quick self-check:** enable, generate with a configured entry, and check backend logs (`log_decisions: true`). Success looks like `[decision-gate] "Library"=0.69 691ms`. Missing API causes repeated `실패(error)`; connection/permission errors can also cause it. “준비됨” (ready) alone does not confirm compatibility.
+**Quick self-check:** enable, generate with a configured entry, and check backend logs (`log_decisions: true`). English is the default: startup shows `[decision-gate] ready`, and success looks like `[decision-gate] "Library"=0.69 691ms in=10 out=2 cost=0.001` (usage/cost appear only when available). Missing API causes repeated `failed(error)`; connection/permission errors can also cause it. With `"language": "ko"`, startup shows `준비됨` and failures show `실패(error)`; scores, timing, and usage/cost keep the same format. A `ready`/`준비됨` message alone does not confirm compatibility.
 
 ## Settings
 
@@ -77,10 +77,11 @@ Edit `settings.json` in **Spindle storage** (no settings screen). Relative to Lu
 - Operator installation: `extensions/decision_gate_lv/storage/settings.json`.
 - User-scoped installation: `users/<user-id>/extensions/decision_gate_lv/settings.json`.
 
-Ask the server administrator if needed. The extension only reads this file; missing/unreadable settings or invalid types use defaults.
+Ask the server administrator if needed. The extension only reads this file; missing/unreadable settings or invalid types use defaults. One build supports both languages. New installs and existing settings without `language` use English (`"en"`). For Korean logs, add `"language": "ko"` to the existing JSON object, preserving other settings, or create the file with `{ "language": "ko" }`. Changes apply on the next call; disable/re-enable to see the startup message in the selected language.
 
 | Setting | Default | Effect |
 |---|---|---|
+| `language` | `"en"` | Log language: `"en"` or `"ko"`; missing or invalid values use English. |
 | `enabled` | `true` | `false` bypasses processing. |
 | `connection_id` | `null` | Default Decision connection; supply a nonempty ID to choose another. |
 | `history_messages` | `6` | Recent non-greeting messages; rounded/clamped to `1–50`. |
@@ -114,6 +115,8 @@ Only prompt-local activation changes. Saved lore, keywords, enabled flags, chats
 
 ## Changelog and credits
 
+**0.2.0:** one build with English/Korean logs selected by `language` (default `"en"`), bilingual extension metadata, and unchanged numeric log formatting.
+
 **0.1.1:** scene-based caching reflects edits/deletions in processed history; empty scenes skip calls; numeric usage/cost is logged when available. Inspired by Marinara's lorebook decision activation.
 
 ---
@@ -122,7 +125,7 @@ Only prompt-local activation changes. Saved lore, keywords, enabled flags, chats
 
 **Decision API(`decisions-v1`)가 포함된 Lumiverse 빌드가 필요합니다. 2026-10-11 이후 빌드(당일 포함)를 사용하세요. 예: 현재 ghcr.io `latest` Docker 이미지 또는 staging/1.3.0. 2026-10-09의 v1.2.5 태그 릴리스에는 이 API가 없으며, 이후 빌드도 버전이 1.2.5로 표시될 수 있습니다.**
 
-판단 게이트는 Marinara의 로어북 “판단 활성화”를 재현합니다. 프롬프트 조립 중 Decision 모델이 항목 조건을 최근 장면과 비교해, 키워드만으로 표현하기 어려운 상황의 로어를 활성화합니다. 확장 **0.1.1** · `decision_gate_lv`.
+판단 게이트는 Marinara의 로어북 “판단 활성화”를 재현합니다. 프롬프트 조립 중 Decision 모델이 항목 조건을 최근 장면과 비교해, 키워드만으로 표현하기 어려운 상황의 로어를 활성화합니다. 확장 **0.2.0** · `decision_gate_lv`.
 
 ## 기능
 
@@ -144,7 +147,7 @@ API(`spindle.decisions.evaluate`)는 커밋 `6d6a921b`(“Add TypeSafe + OR Deci
 2. 두 권한을 허용합니다.
    - **`generation`** — 프롬프트 조립 중 로어북 활성화를 조정합니다.
    - **`decisions`** — 설정한 Decision 모델로 조건을 평가합니다.
-3. **판단 게이트**를 활성화합니다. 시작 후 권한을 허용했다면 껐다가 다시 켭니다.
+3. **Decision Gate · 판단 게이트**를 활성화합니다. 시작 후 권한을 허용했다면 껐다가 다시 켭니다.
 4. **Connections(연결) → Decision Models(Decision 모델)**에서 인증 정보와 `noul` 지원 모델을 설정하고 기본 연결로 지정합니다(또는 아래 `connection_id` 사용). 일반 채팅 모델 연결만으로는 부족합니다.
 
 ![판단 게이트 활성화, generation·decisions 권한, 연결의 Decision models 항목](docs/images/extension-permissions.png)
@@ -188,7 +191,7 @@ API(`spindle.decisions.evaluate`)는 커밋 `6d6a921b`(“Add TypeSafe + OR Deci
 ![decision_gate 확장 네임스페이스의 예시 항목 메타데이터](docs/images/decision-metadata.png)
 
 
-**빠른 자가 점검:** 활성화 후 설정한 항목으로 생성하고 백엔드 로그를 확인하세요(`log_decisions: true`). 정상이면 `[decision-gate] "Library"=0.69 691ms`처럼 표시됩니다. API가 없으면 `실패(error)`가 반복되며, 연결·권한 오류도 같은 메시지를 낼 수 있습니다. “준비됨”만으로는 호환성을 확인할 수 없습니다.
+**빠른 자가 점검:** 활성화 후 설정한 항목으로 생성하고 백엔드 로그를 확인하세요(`log_decisions: true`). 기본 언어는 영어입니다. 시작 시 `[decision-gate] ready`, 성공 시 `[decision-gate] "Library"=0.69 691ms in=10 out=2 cost=0.001`처럼 표시됩니다(사용량·비용은 반환된 경우에만 표시). API가 없으면 `failed(error)`가 반복되며, 연결·권한 오류도 같은 메시지를 낼 수 있습니다. `"language": "ko"`이면 시작 문구는 `준비됨`, 실패 문구는 `실패(error)`이며 점수·시간·사용량·비용 형식은 동일합니다. `ready`/`준비됨`만으로는 호환성을 확인할 수 없습니다.
 
 ## 설정
 
@@ -197,10 +200,11 @@ API(`spindle.decisions.evaluate`)는 커밋 `6d6a921b`(“Add TypeSafe + OR Deci
 - 운영자 범위 설치: `extensions/decision_gate_lv/storage/settings.json`.
 - 사용자 범위 설치: `users/<user-id>/extensions/decision_gate_lv/settings.json`.
 
-서버 관리자가 편집해야 할 수 있습니다. 확장은 파일을 읽지만 직접 만들지는 않습니다. 설정이 없거나 읽을 수 없거나 필드 타입이 잘못되면 기본값을 사용합니다.
+서버 관리자가 편집해야 할 수 있습니다. 확장은 파일을 읽지만 직접 만들지는 않습니다. 설정이 없거나 읽을 수 없거나 필드 타입이 잘못되면 기본값을 사용합니다. 하나의 빌드에서 두 언어를 지원하며, 신규 설치와 `language` 키가 없는 기존 설정은 영어(`"en"`)를 사용합니다. 한국어 로그를 쓰려면 다른 설정을 유지하면서 기존 JSON 객체에 `"language": "ko"`를 추가하거나, 파일이 없다면 `{ "language": "ko" }`로 만드세요. 다음 호출부터 반영되며, 시작 문구도 확인하려면 확장을 껐다 켜세요.
 
 | 설정 | 기본값 | 효과 |
 |---|---|---|
+| `language` | `"en"` | 로그 언어: `"en"` 또는 `"ko"`. 누락되거나 잘못된 값이면 영어를 사용합니다. |
 | `enabled` | `true` | `false`이면 처리를 건너뜁니다. |
 | `connection_id` | `null` | 기본 Decision 연결. 다른 연결을 쓰려면 비어 있지 않은 ID를 지정합니다. |
 | `history_messages` | `6` | 인사말을 제외한 최근 메시지 수. 반올림 후 `1–50`으로 제한합니다. |
@@ -233,5 +237,7 @@ API(`spindle.decisions.evaluate`)는 커밋 `6d6a921b`(“Add TypeSafe + OR Deci
 - 전용 UI·자동 Marinara 가져오기는 없습니다. 실패한 호출은 이후 프롬프트 조립에서 재시도될 수 있으며, 반환된 답변 맵에 개별 답변이 빠진 경우 실패 정책을 적용한 결과가 캐시될 수도 있습니다.
 
 ## 변경 기록과 크레딧
+
+**0.2.0:** 단일 빌드에서 `language` 설정으로 영어·한국어 로그를 선택합니다(기본값 `"en"`). 확장 이름·설명은 두 언어를 함께 표시하며 숫자 로그 형식은 유지합니다.
 
 **0.1.1:** 장면 기반 캐시가 처리 범위 내 편집·삭제를 반영하고, 빈 장면은 호출을 건너뛰며, 숫자형 사용량·비용이 반환되면 기록합니다. Marinara의 로어북 판단 활성화에서 아이디어를 얻었습니다.

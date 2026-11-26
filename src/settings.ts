@@ -1,5 +1,6 @@
 // 확장 설정 (design §5). 저장소 값은 신뢰하지 않고 타입·범위를 검증한다.
 export interface GateSettings {
+  language: 'en' | 'ko';
   enabled: boolean;
   connection_id: string | null;
   history_messages: number;
@@ -9,6 +10,7 @@ export interface GateSettings {
 }
 
 export const DEFAULT_SETTINGS: GateSettings = {
+  language: 'en',
   enabled: true,
   connection_id: null,
   history_messages: 6,
@@ -30,6 +32,7 @@ export function normalizeSettings(raw: unknown): GateSettings {
   const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const d = DEFAULT_SETTINGS;
   return {
+    language: r.language === 'ko' ? 'ko' : d.language,
     enabled: typeof r.enabled === 'boolean' ? r.enabled : d.enabled,
     connection_id: typeof r.connection_id === 'string' && r.connection_id.trim() ? r.connection_id.trim() : null,
     history_messages: int(r.history_messages, d.history_messages, 1, 50),
