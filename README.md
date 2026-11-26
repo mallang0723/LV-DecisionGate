@@ -27,7 +27,7 @@ The API (`spindle.decisions.evaluate`) arrived in commit `6d6a921b` (“Add Type
 3. Enable **판단 게이트**. If permissions were granted after startup, disable and re-enable it.
 4. In **Connections → Decision Models**, configure a default `noul`-capable model and credentials (or set `connection_id` below). A chat connection alone is insufficient.
 
-<!-- screenshot: Install, permissions, and default Decision model connection -->
+![Decision Gate enabled with generation and decisions permissions, and the Decision models section of Connections](docs/images/extension-permissions.png)
 
 ## Usage and entry fields
 
@@ -65,7 +65,8 @@ The API (`spindle.decisions.evaluate`) arrived in commit `6d6a921b` (“Add Type
 
 Disabled entries and invalid configurations are skipped. `decision_gate_lv` is a fallback namespace; an object under `decision_gate` takes precedence.
 
-<!-- screenshot: Example entry metadata and a successful evaluation log -->
+![Example entry metadata for the decision_gate extension namespace](docs/images/decision-metadata.png)
+
 
 **Quick self-check:** enable, generate with a configured entry, and check backend logs (`log_decisions: true`). Success looks like `[decision-gate] "Library"=0.69 691ms`. Missing API causes repeated `실패(error)`; connection/permission errors can also cause it. “준비됨” (ready) alone does not confirm compatibility.
 
@@ -146,7 +147,7 @@ API(`spindle.decisions.evaluate`)는 커밋 `6d6a921b`(“Add TypeSafe + OR Deci
 3. **판단 게이트**를 활성화합니다. 시작 후 권한을 허용했다면 껐다가 다시 켭니다.
 4. **Connections(연결) → Decision Models(Decision 모델)**에서 인증 정보와 `noul` 지원 모델을 설정하고 기본 연결로 지정합니다(또는 아래 `connection_id` 사용). 일반 채팅 모델 연결만으로는 부족합니다.
 
-<!-- screenshot: 설치, 권한, 기본 Decision 모델 연결 -->
+![판단 게이트 활성화, generation·decisions 권한, 연결의 Decision models 항목](docs/images/extension-permissions.png)
 
 ## 사용 방법과 항목 필드
 
@@ -184,7 +185,8 @@ API(`spindle.decisions.evaluate`)는 커밋 `6d6a921b`(“Add TypeSafe + OR Deci
 
 비활성 항목과 잘못된 설정은 건너뜁니다. `decision_gate_lv`도 대체 네임스페이스로 읽으며, `decision_gate`의 객체가 우선합니다.
 
-<!-- screenshot: 예시 항목 메타데이터와 정상 평가 로그 -->
+![decision_gate 확장 네임스페이스의 예시 항목 메타데이터](docs/images/decision-metadata.png)
+
 
 **빠른 자가 점검:** 활성화 후 설정한 항목으로 생성하고 백엔드 로그를 확인하세요(`log_decisions: true`). 정상이면 `[decision-gate] "Library"=0.69 691ms`처럼 표시됩니다. API가 없으면 `실패(error)`가 반복되며, 연결·권한 오류도 같은 메시지를 낼 수 있습니다. “준비됨”만으로는 호환성을 확인할 수 없습니다.
 
